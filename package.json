@@ -1,13 +1,22 @@
 {
+    "name": "backend-realestate",
     "private": true,
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "start-mcp": "node start-mcp.js"
     },
     "devDependencies": {
         "axios": "^1.6.4",
+        "cross-env": "^7.0.3",
         "laravel-vite-plugin": "^1.0.0",
         "vite": "^5.0.0"
+    },
+    "dependencies": {
+        "@benborla29/mcp-server-mysql": "^2.0.0",
+        "dotenv": "^16.5.0",
+        "mcprunner": "^1.0.2",
+        "mysql-mcp": "^1.1.1"
     }
 }
