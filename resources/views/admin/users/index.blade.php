@@ -8,12 +8,12 @@
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
         <h1 class="h2">
             <i class="fas fa-users me-2"></i>
-            User Management
+            Customer Management
         </h1>
         <div class="btn-toolbar mb-2 mb-md-0">
             <div class="btn-group me-2">
                 <a href="{{ route('admin.users.create') }}" class="btn btn-sm btn-primary">
-                    <i class="fas fa-plus"></i> Add New User
+                    <i class="fas fa-plus"></i> Add New Customer
                 </a>
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#bulkActionModal">
                     <i class="fas fa-tasks"></i> Bulk Actions
@@ -32,7 +32,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Users</div>
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Customers</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($statistics['total_users']) }}</div>
                         </div>
                         <div class="col-auto">
@@ -95,14 +95,14 @@
     <!-- Filters -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Search & Filter Users</h6>
+            <h6 class="m-0 font-weight-bold text-primary">Search & Filter Customers</h6>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.users.index') }}">
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Search</label>
-                        <input type="text" name="search" class="form-control" placeholder="Search by name or email..." value="{{ request('search') }}">
+                        <input type="text" name="search" class="form-control" placeholder="Search customers by name or email..." value="{{ request('search') }}">
                     </div>
                     <div class="col-md-3 mb-3">
                         <label class="form-label">Date From</label>
@@ -128,7 +128,7 @@
     <!-- Users Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Users List</h6>
+            <h6 class="m-0 font-weight-bold text-primary">Customers List</h6>
         </div>
         <div class="card-body">
             @if(count($users) > 0)
@@ -148,9 +148,9 @@
                                     </a>
                                 </th>
                                 <th>
-                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_order' => request('sort_order') === 'asc' ? 'desc' : 'asc']) }}">
+                                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'first_name', 'sort_order' => request('sort_order') === 'asc' ? 'desc' : 'asc']) }}">
                                         Name
-                                        @if(request('sort_by') === 'name')
+                                        @if(request('sort_by') === 'first_name')
                                             <i class="fas fa-sort-{{ request('sort_order') === 'asc' ? 'up' : 'down' }}"></i>
                                         @endif
                                     </a>
@@ -180,11 +180,14 @@
                                         <div class="d-flex align-items-center">
                                             <div class="mr-3">
                                                 <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                    <span class="text-white font-weight-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                                                    <span class="text-white font-weight-bold">{{ $user->initials }}</span>
                                                 </div>
                                             </div>
                                             <div>
-                                                <strong>{{ $user->name }}</strong>
+                                                <strong>{{ $user->full_name }}</strong>
+                                                @if($user->user_type && $user->user_type !== 'buyer')
+                                                    <br><small class="text-muted">{{ ucfirst($user->user_type) }}</small>
+                                                @endif
                                             </div>
                                         </div>
                                     </td>
@@ -194,10 +197,17 @@
                                     </td>
                                     <td>{{ $user->created_at->format('M d, Y') }}</td>
                                     <td>
-                                        @if($user->email_verified_at)
+                                        @if($user->status === 'active')
                                             <span class="badge badge-success">Active</span>
+                                        @elseif($user->status === 'inactive')
+                                            <span class="badge badge-secondary">Inactive</span>
+                                        @elseif($user->status === 'suspended')
+                                            <span class="badge badge-danger">Suspended</span>
                                         @else
                                             <span class="badge badge-warning">Pending</span>
+                                        @endif
+                                        @if($user->is_verified)
+                                            <span class="badge badge-info ml-1">Verified</span>
                                         @endif
                                     </td>
                                     <td>
@@ -235,8 +245,8 @@
             @else
                 <div class="text-center py-4">
                     <i class="fas fa-users fa-3x text-gray-300 mb-3"></i>
-                    <h5 class="text-gray-500">No users found</h5>
-                    <p class="text-gray-400">Try adjusting your search criteria or add new users.</p>
+                    <h5 class="text-gray-500">No customers found</h5>
+                    <p class="text-gray-400">Try adjusting your search criteria or add new customers.</p>
                 </div>
             @endif
         </div>
@@ -258,13 +268,15 @@
                         <label class="form-label">Select Action</label>
                         <select name="action" class="form-select" required>
                             <option value="">Choose action...</option>
-                            <option value="activate">Activate Selected Users</option>
-                            <option value="deactivate">Deactivate Selected Users</option>
-                            <option value="delete">Delete Selected Users</option>
+                            <option value="activate">Activate Selected Customers</option>
+                            <option value="deactivate">Deactivate Selected Customers</option>
+                            <option value="suspend">Suspend Selected Customers</option>
+                            <option value="unsuspend">Unsuspend Selected Customers</option>
+                            <option value="delete">Delete Selected Customers</option>
                         </select>
                     </div>
                     <div class="alert alert-warning">
-                        <small>Selected users: <span id="selectedCount">0</span></small>
+                        <small>Selected customers: <span id="selectedCount">0</span></small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -281,7 +293,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Export Users</h5>
+                <h5 class="modal-title">Export Customers</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -371,5 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .badge-success { background-color: #1cc88a; }
 .badge-warning { background-color: #f6c23e; }
 .badge-info { background-color: #36b9cc; }
+.badge-secondary { background-color: #6c757d; }
+.badge-danger { background-color: #e74a3b; }
 </style>
 @endsection

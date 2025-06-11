@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use App\Domain\Property\Repositories\PropertyRepositoryInterface;
 use App\Infrastructure\Repositories\PropertyRepository;
 use App\Domain\Property\Services\PropertySearchService;
+use App\Domain\User\Repositories\UserRepositoryInterface;
+use App\Infrastructure\Repositories\UserRepository;
 
 class DomainServiceProvider extends ServiceProvider
 {
@@ -18,6 +20,7 @@ class DomainServiceProvider extends ServiceProvider
     {
         // Bind repositories
         $this->app->bind(PropertyRepositoryInterface::class, PropertyRepository::class);
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         
         // Register domain services
         $this->app->bind(PropertySearchService::class, function ($app) {
