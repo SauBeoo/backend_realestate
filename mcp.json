@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "mysql-mcp-server": {
+      "command": "node",
+      "args": [
+        "C:/Users/tuana/AppData/Roaming/npm/node_modules/mysql-mcp-server/build/index.js"
+      ],
+      "env": {
+        "MYSQL_HOST": "127.0.0.1",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "root",
+        "MYSQL_PASSWORD": "test",
+        "MYSQL_DATABASE": "real_estate"
+      }
+    }
+  }
+} 

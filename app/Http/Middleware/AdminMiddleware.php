@@ -21,43 +21,15 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = Auth::user();
-
-        // Check if user is authenticated
-        if (!$user) {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Authentication required'
-                ], 401);
-            }
-            
-            return redirect()->route('login')->with('error', 'Please login to access admin panel.');
+        if (!Auth::guard('admin')->check()) {
+            return redirect()->route('admin.login');
         }
 
-        // Check if user is admin (only admin can manage customer users)
-        if ($user->user_type !== 'admin') {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Only administrators can access this area'
-                ], 403);
-            }
-
-            abort(403, 'Only administrators can access this area.');
-        }
-
-        // Check if user is active
-        if ($user->status !== 'active') {
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Your account is not active'
-                ], 403);
-            }
-
-            Auth::logout();
-            return redirect()->route('login')->with('error', 'Your account is not active. Please contact support.');
+        $admin = Auth::guard('admin')->user();
+        
+        if (!$admin->isActive()) {
+            Auth::guard('admin')->logout();
+            return redirect()->route('admin.login')->withErrors(['email' => 'Your account is not active.']);
         }
 
         return $next($request);

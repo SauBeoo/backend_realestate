@@ -66,4 +66,14 @@ interface PropertyRepositoryInterface
      * @return LengthAwarePaginator
      */
     public function getByType(string $type, int $perPage = 15): LengthAwarePaginator;
+
+    /**
+     * Get property statistics
+     */
+    public function getStatistics(): array;
+
+    /**
+     * Search properties with criteria
+     */
+    public function search(array $criteria, int $perPage = 15): LengthAwarePaginator;
 } 

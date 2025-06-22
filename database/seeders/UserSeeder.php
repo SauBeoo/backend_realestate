@@ -16,29 +16,35 @@ class UserSeeder extends Seeder
     {
         // Tạo admin user
         User::create([
-            'name' => 'Admin User',
+            'first_name' => 'Admin',
+            'last_name' => 'User',
             'email' => 'admin@giatrithuoc.com',
             'email_verified_at' => now(),
             'password' => Hash::make('password123'),
+            'phone' => '0901234567',
+            'address' => 'Quận 1, TP. Hồ Chí Minh',
+            'user_type' => 'admin',
+            'status' => 'active',
+            'is_verified' => true,
             'created_at' => now()->subDays(365),
             'updated_at' => now()->subDays(1),
         ]);
 
         // Tạo dữ liệu fake cho users
         $vietnameseNames = [
-            'Nguyễn Văn Minh', 'Trần Thị Hoa', 'Lê Hoàng Nam', 'Phạm Thị Lan',
-            'Hoàng Văn Đức', 'Vũ Thị Mai', 'Đặng Quốc Anh', 'Bùi Thị Linh',
-            'Ngô Văn Tùng', 'Đỗ Thị Nga', 'Lý Hoàng Khôi', 'Tô Thị Xuân',
-            'Đinh Văn Lâm', 'Cao Thị Thảo', 'Dương Quang Hải', 'Phan Thị Kim',
-            'Lương Văn Phú', 'Mạc Thị Hồng', 'Võ Minh Tuấn', 'Lê Thị Yến',
-            'Trương Văn Hùng', 'Nguyễn Thị Oanh', 'Lại Hoàng Dũng', 'Thái Thị Bích',
-            'Huỳnh Văn Long', 'Đinh Thị Thu', 'Phan Quang Minh', 'Đào Thị Lan',
-            'Vương Văn Khoa', 'Lê Thị Phương', 'Trần Minh Đức', 'Nguyễn Thị Trang',
-            'Bùi Văn Sơn', 'Hoàng Thị Thủy', 'Đỗ Quang Vinh', 'Phạm Thị Hằng',
-            'Lý Văn Kiệt', 'Cao Thị Hải', 'Ngô Hoàng Bảo', 'Vũ Thị Loan',
-            'Đặng Văn Thành', 'Mạc Thị Dung', 'Lương Quang Huy', 'Đinh Thị Nhung',
-            'Tô Văn Tài', 'Thái Thị Liên', 'Võ Hoàng Phúc', 'Phan Thị Diệu',
-            'Trương Văn Đại', 'Lại Thị Nga', 'Huỳnh Minh Quân', 'Đào Thị Sen'
+            ['Nguyễn', 'Văn Minh'], ['Trần', 'Thị Hoa'], ['Lê', 'Hoàng Nam'], ['Phạm', 'Thị Lan'],
+            ['Hoàng', 'Văn Đức'], ['Vũ', 'Thị Mai'], ['Đặng', 'Quốc Anh'], ['Bùi', 'Thị Linh'],
+            ['Ngô', 'Văn Tùng'], ['Đỗ', 'Thị Nga'], ['Lý', 'Hoàng Khôi'], ['Tô', 'Thị Xuân'],
+            ['Đinh', 'Văn Lâm'], ['Cao', 'Thị Thảo'], ['Dương', 'Quang Hải'], ['Phan', 'Thị Kim'],
+            ['Lương', 'Văn Phú'], ['Mạc', 'Thị Hồng'], ['Võ', 'Minh Tuấn'], ['Lê', 'Thị Yến'],
+            ['Trương', 'Văn Hùng'], ['Nguyễn', 'Thị Oanh'], ['Lại', 'Hoàng Dũng'], ['Thái', 'Thị Bích'],
+            ['Huỳnh', 'Văn Long'], ['Đinh', 'Thị Thu'], ['Phan', 'Quang Minh'], ['Đào', 'Thị Lan'],
+            ['Vương', 'Văn Khoa'], ['Lê', 'Thị Phương'], ['Trần', 'Minh Đức'], ['Nguyễn', 'Thị Trang'],
+            ['Bùi', 'Văn Sơn'], ['Hoàng', 'Thị Thủy'], ['Đỗ', 'Quang Vinh'], ['Phạm', 'Thị Hằng'],
+            ['Lý', 'Văn Kiệt'], ['Cao', 'Thị Hải'], ['Ngô', 'Hoàng Bảo'], ['Vũ', 'Thị Loan'],
+            ['Đặng', 'Văn Thành'], ['Mạc', 'Thị Dung'], ['Lương', 'Quang Huy'], ['Đinh', 'Thị Nhung'],
+            ['Tô', 'Văn Tài'], ['Thái', 'Thị Liên'], ['Võ', 'Hoàng Phúc'], ['Phan', 'Thị Diệu'],
+            ['Trương', 'Văn Đại'], ['Lại', 'Thị Nga'], ['Huỳnh', 'Minh Quân'], ['Đào', 'Thị Sen']
         ];
 
         $phoneNumbers = [
@@ -78,21 +84,33 @@ class UserSeeder extends Seeder
             'Liên Chiểu, Đà Nẵng'
         ];
 
+        $userTypes = ['buyer', 'seller', 'agent'];
+
         // Tạo 50 users với dữ liệu Vietnamese realistic
         for ($i = 0; $i < 50; $i++) {
             $createdAt = Carbon::now()->subDays(rand(1, 365));
             $updatedAt = $createdAt->copy()->addDays(rand(0, 30));
             
-            $name = $vietnameseNames[array_rand($vietnameseNames)];
-            $email = $this->generateVietnameseEmail($name, $i);
+            $nameData = $vietnameseNames[array_rand($vietnameseNames)];
+            $firstName = $nameData[0];
+            $lastName = $nameData[1];
+            $fullName = $firstName . ' ' . $lastName;
+            $email = $this->generateVietnameseEmail($fullName, $i);
             
             User::create([
-                'name' => $name,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
                 'email' => $email,
                 'email_verified_at' => rand(0, 1) ? $createdAt->addDays(rand(0, 7)) : null,
                 'password' => Hash::make('password123'),
                 'phone' => $phoneNumbers[array_rand($phoneNumbers)],
                 'address' => $addresses[array_rand($addresses)],
+                'user_type' => $userTypes[array_rand($userTypes)],
+                'status' => 'active',
+                'is_verified' => rand(0, 1),
+                'country' => 'Vietnam',
+                'receive_notifications' => rand(0, 1),
+                'receive_marketing' => rand(0, 1) == 1,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
             ]);

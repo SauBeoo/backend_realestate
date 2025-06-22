@@ -80,14 +80,26 @@ class DashboardService
      */
     protected function getPropertyStatistics(): array
     {
-        $propertyByType = Property::select('type', DB::raw('count(*) as count'))
-            ->groupBy('type')
-            ->pluck('count', 'type')
+        // Get property counts by type using relationships
+        $propertyByType = Property::with('propertyType')
+            ->get()
+            ->groupBy(function($property) {
+                return $property->propertyType?->key ?? 'unknown';
+            })
+            ->map(function($group) {
+                return $group->count();
+            })
             ->toArray();
 
-        $propertyByStatus = Property::select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
+        // Get property counts by status using relationships
+        $propertyByStatus = Property::with('propertyStatus')
+            ->get()
+            ->groupBy(function($property) {
+                return $property->propertyStatus?->key ?? 'unknown';
+            })
+            ->map(function($group) {
+                return $group->count();
+            })
             ->toArray();
 
         $monthlyData = Property::select(
@@ -117,7 +129,7 @@ class DashboardService
      */
     protected function getRecentActivities(): Collection
     {
-        return Property::with('owner')
+        return Property::with(['owner', 'propertyStatus', 'propertyType'])
             ->orderBy('updated_at', 'desc')
             ->take(10)
             ->get()
@@ -128,8 +140,8 @@ class DashboardService
                     'action' => $this->determineAction($property),
                     'owner' => $property->owner->name ?? 'Unknown',
                     'timestamp' => $property->updated_at,
-                    'status' => $property->status,
-                    'type' => $property->type,
+                    'status' => $property->propertyStatus?->key ?? 'unknown',
+                    'type' => $property->propertyType?->key ?? 'unknown',
                 ];
             });
     }
@@ -224,27 +236,45 @@ class DashboardService
      */
     protected function getMarketTrends(): array
     {
-        $priceHistory = Property::select(
-                DB::raw('DATE(created_at) as date'),
-                DB::raw('AVG(price) as avg_price'),
-                'type'
-            )
+        // Get price trends using relationships - this is more complex but necessary
+        // For simplicity, we'll get the data and process it with collections
+        $priceHistory = Property::with('propertyType')
             ->where('created_at', '>=', Carbon::now()->subMonths(6))
-            ->groupBy('date', 'type')
-            ->orderBy('date', 'asc')
-            ->get();
-
-        $demandAnalysis = Property::select(
-                'type',
-                DB::raw('count(*) as listings'),
-                DB::raw('SUM(CASE WHEN status IN ("sold", "rented") THEN 1 ELSE 0 END) as completed')
-            )
-            ->groupBy('type')
             ->get()
-            ->map(function ($item) {
-                $item->success_rate = $item->listings > 0 ? round(($item->completed / $item->listings) * 100, 2) : 0;
-                return $item;
+            ->groupBy([
+                function($property) { return $property->created_at->format('Y-m-d'); },
+                function($property) { return $property->propertyType?->key ?? 'unknown'; }
+            ])
+            ->map(function ($dateGroup) {
+                return $dateGroup->map(function ($typeGroup) {
+                    return [
+                        'avg_price' => $typeGroup->avg('price'),
+                        'count' => $typeGroup->count()
+                    ];
+                });
             });
+
+        // Get demand analysis using collections instead of raw SQL
+        $demandAnalysis = Property::with(['propertyType', 'propertyStatus'])
+            ->get()
+            ->groupBy(function($property) {
+                return $property->propertyType?->key ?? 'unknown';
+            })
+            ->map(function ($typeGroup, $type) {
+                $listings = $typeGroup->count();
+                $completed = $typeGroup->filter(function($property) {
+                    $statusKey = $property->propertyStatus?->key;
+                    return in_array($statusKey, ['sold', 'rented']);
+                })->count();
+                
+                return (object) [
+                    'type' => $type,
+                    'listings' => $listings,
+                    'completed' => $completed,
+                    'success_rate' => $listings > 0 ? round(($completed / $listings) * 100, 2) : 0
+                ];
+            })
+            ->values();
 
         return [
             'price_trends' => $priceHistory,
@@ -265,17 +295,29 @@ class DashboardService
         $insights = [];
         
         // Property performance insights
-        $highPerformingTypes = Property::select('type', DB::raw('AVG(price) as avg_price'))
-            ->whereIn('status', [PropertyStatus::SOLD->value, PropertyStatus::RENTED->value])
-            ->groupBy('type')
-            ->orderBy('avg_price', 'desc')
+        $performanceByType = Property::with(['propertyType', 'propertyStatus'])
+            ->get()
+            ->filter(function($property) {
+                $statusKey = $property->propertyStatus?->key;
+                return in_array($statusKey, [PropertyStatus::SOLD->value, PropertyStatus::RENTED->value]);
+            })
+            ->groupBy(function($property) {
+                return $property->propertyType?->key ?? 'unknown';
+            })
+            ->map(function($typeGroup, $type) {
+                return [
+                    'type' => $type,
+                    'avg_price' => $typeGroup->avg('price')
+                ];
+            })
+            ->sortByDesc('avg_price')
             ->first();
 
-        if ($highPerformingTypes) {
+        if ($performanceByType) {
             $insights[] = [
                 'type' => 'performance',
                 'title' => 'High Performing Property Type',
-                'message' => "Properties of type '{$highPerformingTypes->type}' show the highest average transaction value.",
+                'message' => "Properties of type '{$performanceByType['type']}' show the highest average transaction value.",
                 'action' => 'Consider focusing marketing efforts on this property type.',
                 'priority' => 'high'
             ];
@@ -333,9 +375,11 @@ class DashboardService
      */
     protected function determineAction(Property $property): string
     {
-        if ($property->status === PropertyStatus::SOLD->value) {
+        $statusKey = $property->propertyStatus?->key;
+        
+        if ($statusKey === PropertyStatus::SOLD->value) {
             return 'Sold';
-        } elseif ($property->status === PropertyStatus::RENTED->value) {
+        } elseif ($statusKey === PropertyStatus::RENTED->value) {
             return 'Rented';
         } elseif ($property->created_at->isToday()) {
             return 'Listed';
@@ -391,11 +435,23 @@ class DashboardService
      */
     protected function identifyUnderservedMarkets(): array
     {
-        $typeCounts = Property::select('type', DB::raw('count(*) as count'))
-            ->whereIn('status', [PropertyStatus::FOR_SALE->value, PropertyStatus::FOR_RENT->value])
-            ->groupBy('type')
-            ->pluck('count', 'type')
+        $typeCounts = Property::with(['propertyType', 'propertyStatus'])
+            ->get()
+            ->filter(function($property) {
+                $statusKey = $property->propertyStatus?->key;
+                return in_array($statusKey, [PropertyStatus::FOR_SALE->value, PropertyStatus::FOR_RENT->value]);
+            })
+            ->groupBy(function($property) {
+                return $property->propertyType?->key ?? 'unknown';
+            })
+            ->map(function($typeGroup) {
+                return $typeGroup->count();
+            })
             ->toArray();
+
+        if (empty($typeCounts)) {
+            return [];
+        }
 
         $averageCount = array_sum($typeCounts) / count($typeCounts);
         

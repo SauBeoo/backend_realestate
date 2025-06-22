@@ -171,8 +171,12 @@ class AnalyticsController extends Controller
         return [
             'total_properties' => $query->count(),
             'new_listings' => $query->count(),
-            'sold_properties' => $query->where('status', PropertyStatus::SOLD->value)->count(),
-            'rented_properties' => $query->where('status', PropertyStatus::RENTED->value)->count(),
+            'sold_properties' => $query->whereHas('propertyStatus', function($q) {
+                $q->where('key', PropertyStatus::SOLD->value);
+            })->count(),
+            'rented_properties' => $query->whereHas('propertyStatus', function($q) {
+                $q->where('key', PropertyStatus::RENTED->value);
+            })->count(),
             'total_value' => $query->sum('price'),
             'average_price' => $query->avg('price'),
             'conversion_rate' => $this->calculateConversionRate($dateRange),
@@ -184,15 +188,33 @@ class AnalyticsController extends Controller
      */
     protected function getPropertyAnalytics(array $dateRange): array
     {
+        // Get type distribution using relationships
+        $propertiesByType = Property::with('propertyType')
+            ->whereBetween('created_at', [$dateRange['from'], $dateRange['to']])
+            ->get()
+            ->groupBy(function($property) {
+                return $property->propertyType?->key ?? 'unknown';
+            })
+            ->map(function($group, $type) {
+                return (object) ['type' => $type, 'count' => $group->count()];
+            })
+            ->values();
+
+        // Get status distribution using relationships
+        $propertiesByStatus = Property::with('propertyStatus')
+            ->whereBetween('created_at', [$dateRange['from'], $dateRange['to']])
+            ->get()
+            ->groupBy(function($property) {
+                return $property->propertyStatus?->key ?? 'unknown';
+            })
+            ->map(function($group, $status) {
+                return (object) ['status' => $status, 'count' => $group->count()];
+            })
+            ->values();
+
         return [
-            'by_type' => Property::whereBetween('created_at', [$dateRange['from'], $dateRange['to']])
-                                ->select('type', DB::raw('count(*) as count'))
-                                ->groupBy('type')
-                                ->get(),
-            'by_status' => Property::whereBetween('created_at', [$dateRange['from'], $dateRange['to']])
-                                  ->select('status', DB::raw('count(*) as count'))
-                                  ->groupBy('status')
-                                  ->get(),
+            'by_type' => $propertiesByType,
+            'by_status' => $propertiesByStatus,
             'price_ranges' => $this->getPriceRangeDistribution($dateRange),
             'size_distribution' => $this->getSizeDistribution($dateRange),
         ];
@@ -218,11 +240,15 @@ class AnalyticsController extends Controller
      */
     protected function getFinancialAnalytics(array $dateRange): array
     {
-        $soldProperties = Property::where('status', PropertyStatus::SOLD->value)
-                                 ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']]);
+        $soldProperties = Property::whereHas('propertyStatus', function($q) {
+                $q->where('key', PropertyStatus::SOLD->value);
+            })
+            ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']]);
         
-        $rentedProperties = Property::where('status', PropertyStatus::RENTED->value)
-                                   ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']]);
+        $rentedProperties = Property::whereHas('propertyStatus', function($q) {
+                $q->where('key', PropertyStatus::RENTED->value);
+            })
+            ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']]);
 
         return [
             'total_sales_volume' => $soldProperties->sum('price'),
@@ -264,9 +290,11 @@ class AnalyticsController extends Controller
     protected function calculateConversionRate(array $dateRange): float
     {
         $totalListings = Property::whereBetween('created_at', [$dateRange['from'], $dateRange['to']])->count();
-        $completedTransactions = Property::whereIn('status', [PropertyStatus::SOLD->value, PropertyStatus::RENTED->value])
-                                        ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']])
-                                        ->count();
+        $completedTransactions = Property::whereHas('propertyStatus', function($q) {
+                $q->whereIn('key', [PropertyStatus::SOLD->value, PropertyStatus::RENTED->value]);
+            })
+            ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']])
+            ->count();
 
         return $totalListings > 0 ? round(($completedTransactions / $totalListings) * 100, 2) : 0;
     }
@@ -331,9 +359,11 @@ class AnalyticsController extends Controller
     {
         $commissionRate = 0.03; // 3% commission rate
         
-        $totalTransactionValue = Property::whereIn('status', [PropertyStatus::SOLD->value, PropertyStatus::RENTED->value])
-                                        ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']])
-                                        ->sum('price');
+        $totalTransactionValue = Property::whereHas('propertyStatus', function($q) {
+                $q->whereIn('key', [PropertyStatus::SOLD->value, PropertyStatus::RENTED->value]);
+            })
+            ->whereBetween('updated_at', [$dateRange['from'], $dateRange['to']])
+            ->sum('price');
 
         return round($totalTransactionValue * $commissionRate, 2);
     }

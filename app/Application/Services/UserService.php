@@ -206,12 +206,23 @@ class UserService
     {
         $user->load(['properties']);
 
+        // Load properties with status relationships for accurate counting
+        $user->load(['properties.propertyStatus']);
+        
         return [
             'total_properties' => $user->properties->count(),
-            'properties_for_sale' => $user->properties->where('status', 'for_sale')->count(),
-            'properties_for_rent' => $user->properties->where('status', 'for_rent')->count(),
-            'sold_properties' => $user->properties->where('status', 'sold')->count(),
-            'rented_properties' => $user->properties->where('status', 'rented')->count(),
+            'properties_for_sale' => $user->properties->filter(function($property) {
+                return $property->propertyStatus?->key === 'for_sale';
+            })->count(),
+            'properties_for_rent' => $user->properties->filter(function($property) {
+                return $property->propertyStatus?->key === 'for_rent';
+            })->count(),
+            'sold_properties' => $user->properties->filter(function($property) {
+                return $property->propertyStatus?->key === 'sold';
+            })->count(),
+            'rented_properties' => $user->properties->filter(function($property) {
+                return $property->propertyStatus?->key === 'rented';
+            })->count(),
             'total_property_value' => $user->properties->sum('price'),
             'average_property_value' => $user->properties->count() > 0 
                 ? $user->properties->avg('price') 

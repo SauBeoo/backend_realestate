@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\PropertyController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\AiChatController;
+use App\Http\Controllers\Admin\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,12 +23,29 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Admin routes (add authentication middleware in production)
-Route::prefix('admin')->name('admin.')->group(function () {
+// Admin Authentication Routes (Guest only)
+Route::prefix('admin')->name('admin.')->middleware('guest:admin')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [AuthController::class, 'register']);
+});
+
+// Admin routes (protected)
+Route::prefix('admin')->name('admin.')->middleware(['admin'])->group(function () {
+    // Logout route
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
     Route::get('/dashboard/data', [DashboardController::class, 'getData'])->name('dashboard.data');
+    Route::get('/dashboard/real-time-updates', [DashboardController::class, 'getRealTimeUpdates'])->name('dashboard.real-time-updates');
+    Route::post('/dashboard/refresh-cache', [DashboardController::class, 'refreshCache'])->name('dashboard.refresh-cache');
+    Route::get('/dashboard/analytics-by-date', [DashboardController::class, 'getAnalyticsByDateRange'])->name('dashboard.analytics-by-date');
+    Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
+    Route::get('/dashboard/download-export', function() { 
+        return response()->json(['message' => 'Export download would be handled here']); 
+    })->name('dashboard.download-export');
 
     // Property Management
     Route::resource('properties', PropertyController::class);

@@ -6,9 +6,11 @@ use App\Application\Services\PropertyService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PropertyStoreRequest;
 use App\Http\Requests\PropertyUpdateRequest;
-use App\Domain\Property\Models\Property; // Assuming direct model usage for simplicity in admin, or use service
+use App\Domain\Property\Models\Property;
+use App\Models\PropertyType;
+use App\Models\PropertyStatus;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log; // For logging errors
+use Illuminate\Support\Facades\Log;
 
 class PropertyController extends Controller
 {
@@ -26,10 +28,18 @@ class PropertyController extends Controller
      */
     public function index(Request $request)
     {
-        // You might want to use the service if complex filtering/pagination is needed
-        // For simplicity, direct model usage is shown here, adjust as per your DDD layers.
-        $properties = Property::latest()->paginate(20); // Or $this->propertyService->getAllProperties(...);
-        return view('admin.properties.index', compact('properties'));
+        try {
+            $filters = $this->buildFilters($request);
+            $perPage = $request->get('per_page', 20);
+            
+            $properties = $this->propertyService->getAllProperties($filters, $perPage);
+            $statistics = $this->propertyService->getStatistics();
+            
+            return view('admin.properties.index', compact('properties', 'statistics', 'filters'));
+        } catch (\Exception $e) {
+            Log::error('Error loading properties index: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error loading properties. Please try again.');
+        }
     }
 
     /**
@@ -37,10 +47,10 @@ class PropertyController extends Controller
      */
     public function create()
     {
-        // Fetch any necessary data for the form, e.g., owners (users), property types, statuses
-        // $users = User::all(); // Example
-        // For simplicity, we'll handle enums/options directly in the view or with constants
-        return view('admin.properties.create');
+        $propertyTypes = PropertyType::active()->ordered()->get();
+        $propertyStatuses = PropertyStatus::active()->ordered()->get();
+        
+        return view('admin.properties.create', compact('propertyTypes', 'propertyStatuses'));
     }
 
     /**
@@ -58,6 +68,19 @@ class PropertyController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(string $id)
+    {
+        $property = $this->propertyService->getPropertyById($id);
+        if (!$property) {
+            return redirect()->route('admin.properties.index')->with('error', 'Property not found.');
+        }
+        
+        return view('admin.properties.show', compact('property'));
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(string $id)
@@ -66,8 +89,11 @@ class PropertyController extends Controller
         if (!$property) {
             return redirect()->route('admin.properties.index')->with('error', 'Property not found.');
         }
-        // $users = User::all(); // Example if you need to select owner
-        return view('admin.properties.edit', compact('property'));
+        
+        $propertyTypes = PropertyType::active()->ordered()->get();
+        $propertyStatuses = PropertyStatus::active()->ordered()->get();
+        
+        return view('admin.properties.edit', compact('property', 'propertyTypes', 'propertyStatuses'));
     }
 
     /**
@@ -96,5 +122,20 @@ class PropertyController extends Controller
             Log::error('Error deleting property ' . $id . ': ' . $e->getMessage());
             return back()->with('error', 'Error deleting property. Please try again.');
         }
+    }
+
+    /**
+     * Build filters from request
+     */
+    private function buildFilters(Request $request): array
+    {
+        return array_filter([
+            'search' => $request->get('search'),
+            'type' => $request->get('type'),
+            'status' => $request->get('status'),
+            'min_price' => $request->get('min_price'),
+            'max_price' => $request->get('max_price'),
+            'bedrooms' => $request->get('bedrooms'),
+        ]);
     }
 } 

@@ -76,9 +76,9 @@ class PropertySearchService
         // For simplicity, we're just finding properties of the same type in a similar price range
         
         $similarProperties = Property::where('id', '!=', $property->id)
-            ->where('type', $property->type)
+            ->where('property_type_id', $property->property_type_id)
             ->whereBetween('price', [$property->price * 0.8, $property->price * 1.2])
-            ->where('status', $property->status)
+            ->where('property_status_id', $property->property_status_id)
             ->limit($limit)
             ->get();
             

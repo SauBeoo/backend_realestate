@@ -173,10 +173,15 @@ class UserResponseService
             
             if ($user->relationLoaded('properties')) {
                 $data['properties'] = $user->properties->map(function ($property) {
+                    // Load property status relationship if not already loaded
+                    if (!$property->relationLoaded('propertyStatus')) {
+                        $property->load('propertyStatus');
+                    }
+                    
                     return [
                         'id' => $property->id,
                         'title' => $property->title,
-                        'status' => $property->status,
+                        'status' => $property->propertyStatus?->key ?? 'unknown',
                         'price' => $property->price,
                         'created_at' => $property->created_at->toISOString(),
                     ];

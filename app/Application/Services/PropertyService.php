@@ -4,6 +4,8 @@ namespace App\Application\Services;
 
 use App\Domain\Property\Models\Property;
 use App\Domain\Property\Repositories\PropertyRepositoryInterface;
+use App\Models\PropertyType;
+use App\Models\PropertyStatus;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class PropertyService
@@ -54,7 +56,15 @@ class PropertyService
      */
     public function createProperty(array $data): Property
     {
-        // Here you could add domain logic, validations, etc.
+        // Process features if it's a string
+        if (isset($data['features_text']) && is_string($data['features_text'])) {
+            $data['features'] = array_map('trim', explode(',', $data['features_text']));
+            unset($data['features_text']);
+        }
+
+        // Convert type and status to IDs
+        $data = $this->convertTypeAndStatusToIds($data);
+
         return $this->propertyRepository->create($data);
     }
 
@@ -67,7 +77,15 @@ class PropertyService
      */
     public function updateProperty(int $id, array $data): ?Property
     {
-        // Here you could add domain logic, validations, etc.
+        // Process features if it's a string
+        if (isset($data['features_text']) && is_string($data['features_text'])) {
+            $data['features'] = array_map('trim', explode(',', $data['features_text']));
+            unset($data['features_text']);
+        }
+
+        // Convert type and status to IDs
+        $data = $this->convertTypeAndStatusToIds($data);
+
         return $this->propertyRepository->update($id, $data);
     }
 
@@ -104,5 +122,50 @@ class PropertyService
     public function getPropertiesByOwner(int $ownerId, int $perPage = 15): LengthAwarePaginator
     {
         return $this->propertyRepository->getByOwnerId($ownerId, $perPage);
+    }
+
+    /**
+     * Get property statistics
+     */
+    public function getStatistics(): array
+    {
+        return $this->propertyRepository->getStatistics();
+    }
+
+    /**
+     * Search properties with advanced criteria
+     */
+    public function searchProperties(array $criteria, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->propertyRepository->search($criteria, $perPage);
+    }
+
+    /**
+     * Convert type and status strings to their corresponding IDs
+     *
+     * @param array $data
+     * @return array
+     */
+    protected function convertTypeAndStatusToIds(array $data): array
+    {
+        // Convert type string to property_type_id
+        if (isset($data['type'])) {
+            $propertyType = PropertyType::where('key', $data['type'])->first();
+            if ($propertyType) {
+                $data['property_type_id'] = $propertyType->id;
+            }
+            unset($data['type']);
+        }
+
+        // Convert status string to property_status_id
+        if (isset($data['status'])) {
+            $propertyStatus = PropertyStatus::where('key', $data['status'])->first();
+            if ($propertyStatus) {
+                $data['property_status_id'] = $propertyStatus->id;
+            }
+            unset($data['status']);
+        }
+
+        return $data;
     }
 } 

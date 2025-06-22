@@ -3,259 +3,371 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Panel - {{ config('app.name', 'Laravel') }}</title>
+    <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
+    
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <!-- Scripts -->
-    {{-- @vite(['resources/css/app.css', 'resources/js/app.js']) --}}
-    <!-- Styles -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body { padding-top: 5rem; }
-        .main-content { margin-left: 220px; padding: 20px; }
-        .sidebar {
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 100;
-            padding: 48px 0 0;
-            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
-            width: 220px;
-        }
-        .sidebar .nav-link { font-weight: 500; color: #333; }
-        .sidebar .nav-link.active { color: #0d6efd; }
-    </style>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Admin CSS -->
+    <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
+    
+    @stack('styles')
 </head>
 <body>
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url('/admin') }}">
+            <a class="navbar-brand" href="{{ route('admin.dashboard.index') }}">
+                <i class="fas fa-building me-2"></i>
                 {{ config('app.name', 'Laravel') }} Admin
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
+            
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+                <i class="fas fa-bars"></i>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <!-- Right Side Of Navbar -->
-                <ul class="navbar-nav ms-auto">
-                    {{-- Add auth links here --}}
-                    <li class="nav-item"><a class="nav-link" href="#">Logout (Placeholder)</a></li>
-                </ul>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge bg-danger rounded-pill">3</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><h6 class="dropdown-header">Notifications</h6></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-info-circle me-2"></i>New property added</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>New user registered</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#">View all</a></li>
+                    </ul>
+                </div>
+                
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        @auth('admin')
+                            @php
+                                $adminName = Auth::guard('admin')->user()->full_name ?? 'Admin';
+                                $adminInitials = substr($adminName, 0, 1);
+                            @endphp
+                            <img src="https://ui-avatars.com/api/?name={{ urlencode($adminInitials) }}&background=4f46e5&color=fff&size=32" class="rounded-circle me-2" width="32" height="32">
+                            {{ $adminName }}
+                        @else
+                            <img src="https://ui-avatars.com/api/?name=Admin&background=4f46e5&color=fff&size=32" class="rounded-circle me-2" width="32" height="32">
+                            Admin
+                        @endauth
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="POST" action="{{ route('admin.logout') }}" class="d-inline">
+                                @csrf
+                                <button type="submit" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
-                <div class="position-sticky pt-3">
-                    <ul class="nav flex-column">
-                        <!-- Dashboard -->
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.dashboard.*') ? 'active' : '' }}" href="{{ route('admin.dashboard.index') }}">
-                                <i class="fas fa-tachometer-alt me-2"></i>
-                                Dashboard
-                            </a>
-                        </li>
+    <!-- Sidebar -->
+    <div class="offcanvas-lg offcanvas-start sidebar" tabindex="-1" id="sidebar">
+        <div class="offcanvas-header d-lg-none">
+            <h5 class="offcanvas-title">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        
+        <div class="offcanvas-body p-0">
+            <nav class="nav flex-column">
+                <!-- Dashboard -->
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.dashboard.*') ? 'active' : '' }}" href="{{ route('admin.dashboard.index') }}">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Dashboard
+                    </a>
+                </div>
 
-                        <!-- Property Management -->
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.properties.*') ? 'active' : '' }}" href="{{ route('admin.properties.index') }}">
-                                <i class="fas fa-home me-2"></i>
-                                Properties
-                            </a>
-                        </li>
+                <!-- Properties -->
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.properties.*') ? 'active' : '' }}" href="{{ route('admin.properties.index') }}">
+                        <i class="fas fa-home"></i>
+                        Properties
+                    </a>
+                </div>
 
-                        <!-- User Management -->
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" href="{{ route('admin.users.index') }}">
-                                <i class="fas fa-users me-2"></i>
-                                Users
-                            </a>
-                        </li>
+                <!-- Users -->
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" href="{{ route('admin.users.index') }}">
+                        <i class="fas fa-users"></i>
+                        Users
+                    </a>
+                </div>
 
-                        <!-- Analytics & Reports -->
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.analytics.*') ? 'active' : '' }}" href="#" data-bs-toggle="collapse" data-bs-target="#analyticsSubmenu" aria-expanded="false">
-                                <i class="fas fa-chart-bar me-2"></i>
-                                Analytics & Reports
-                                <i class="fas fa-chevron-down ms-auto"></i>
+                <!-- Analytics -->
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.analytics.*') ? 'active' : '' }}" 
+                       href="#analyticsMenu" 
+                       data-bs-toggle="collapse">
+                        <i class="fas fa-chart-bar"></i>
+                        Analytics
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse {{ request()->routeIs('admin.analytics.*') ? 'show' : '' }}" id="analyticsMenu">
+                        <nav class="nav flex-column">
+                            <a class="nav-link {{ request()->routeIs('admin.analytics.index') ? 'active' : '' }}" href="{{ route('admin.analytics.index') }}">
+                                <i class="fas fa-chart-line"></i>
+                                Overview
                             </a>
-                            <div class="collapse {{ request()->routeIs('admin.analytics.*') ? 'show' : '' }}" id="analyticsSubmenu">
-                                <ul class="nav flex-column ms-3">
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.analytics.index') ? 'active' : '' }}" href="{{ route('admin.analytics.index') }}">
-                                            <i class="fas fa-chart-line me-2"></i>
-                                            Overview
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.analytics.property-report') ? 'active' : '' }}" href="{{ route('admin.analytics.property-report') }}">
-                                            <i class="fas fa-building me-2"></i>
-                                            Property Reports
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.analytics.user-report') ? 'active' : '' }}" href="{{ route('admin.analytics.user-report') }}">
-                                            <i class="fas fa-user-chart me-2"></i>
-                                            User Analytics
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.analytics.financial-report') ? 'active' : '' }}" href="{{ route('admin.analytics.financial-report') }}">
-                                            <i class="fas fa-dollar-sign me-2"></i>
-                                            Financial Reports
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-
-                        <!-- AI Chat Management -->
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.ai-chat.*') ? 'active' : '' }}" href="#" data-bs-toggle="collapse" data-bs-target="#aiChatSubmenu" aria-expanded="false">
-                                <i class="fas fa-robot me-2"></i>
-                                AI Chat Management
-                                <i class="fas fa-chevron-down ms-auto"></i>
+                            <a class="nav-link {{ request()->routeIs('admin.analytics.property-report') ? 'active' : '' }}" href="{{ route('admin.analytics.property-report') }}">
+                                <i class="fas fa-building"></i>
+                                Property Reports
                             </a>
-                            <div class="collapse {{ request()->routeIs('admin.ai-chat.*') ? 'show' : '' }}" id="aiChatSubmenu">
-                                <ul class="nav flex-column ms-3">
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.ai-chat.index') ? 'active' : '' }}" href="{{ route('admin.ai-chat.index') }}">
-                                            <i class="fas fa-comments me-2"></i>
-                                            Chat Overview
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.ai-chat.services') ? 'active' : '' }}" href="{{ route('admin.ai-chat.services') }}">
-                                            <i class="fas fa-cogs me-2"></i>
-                                            AI Services
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.ai-chat.sessions') ? 'active' : '' }}" href="{{ route('admin.ai-chat.sessions') }}">
-                                            <i class="fas fa-history me-2"></i>
-                                            Chat Sessions
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.ai-chat.analytics') ? 'active' : '' }}" href="{{ route('admin.ai-chat.analytics') }}">
-                                            <i class="fas fa-chart-pie me-2"></i>
-                                            AI Analytics
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-
-                        <!-- Divider -->
-                        <hr class="sidebar-divider my-3">
-
-                        <!-- Property Valuation -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="alert('Property Valuation System - Coming Soon')">
-                                <i class="fas fa-calculator me-2"></i>
-                                Property Valuation
+                            <a class="nav-link {{ request()->routeIs('admin.analytics.user-report') ? 'active' : '' }}" href="{{ route('admin.analytics.user-report') }}">
+                                <i class="fas fa-user-chart"></i>
+                                User Analytics
                             </a>
-                        </li>
-
-                        <!-- Legal Support -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="alert('Legal Support System - Coming Soon')">
-                                <i class="fas fa-gavel me-2"></i>
-                                Legal Support
+                            <a class="nav-link {{ request()->routeIs('admin.analytics.financial-report') ? 'active' : '' }}" href="{{ route('admin.analytics.financial-report') }}">
+                                <i class="fas fa-dollar-sign"></i>
+                                Financial Reports
                             </a>
-                        </li>
+                        </nav>
+                    </div>
+                </div>
 
-                        <!-- Transaction Management -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="alert('Transaction Management - Coming Soon')">
-                                <i class="fas fa-handshake me-2"></i>
-                                Transactions
+                <!-- AI Chat -->
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.ai-chat.*') ? 'active' : '' }}" 
+                       href="#aiChatMenu" 
+                       data-bs-toggle="collapse">
+                        <i class="fas fa-robot"></i>
+                        AI Chat
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse {{ request()->routeIs('admin.ai-chat.*') ? 'show' : '' }}" id="aiChatMenu">
+                        <nav class="nav flex-column">
+                            <a class="nav-link {{ request()->routeIs('admin.ai-chat.index') ? 'active' : '' }}" href="{{ route('admin.ai-chat.index') }}">
+                                <i class="fas fa-comments"></i>
+                                Chat Overview
                             </a>
-                        </li>
+                            <a class="nav-link {{ request()->routeIs('admin.ai-chat.services') ? 'active' : '' }}" href="{{ route('admin.ai-chat.services') }}">
+                                <i class="fas fa-cogs"></i>
+                                AI Services
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('admin.ai-chat.sessions') ? 'active' : '' }}" href="{{ route('admin.ai-chat.sessions') }}">
+                                <i class="fas fa-history"></i>
+                                Chat Sessions
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('admin.ai-chat.analytics') ? 'active' : '' }}" href="{{ route('admin.ai-chat.analytics') }}">
+                                <i class="fas fa-chart-pie"></i>
+                                AI Analytics
+                            </a>
+                        </nav>
+                    </div>
+                </div>
 
-                        <!-- Banking Partners -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="alert('Banking Partners Management - Coming Soon')">
-                                <i class="fas fa-university me-2"></i>
-                                Banking Partners
-                            </a>
-                        </li>
+                <!-- Divider -->
+                <hr class="sidebar-divider">
 
-                        <!-- Mobile App Management -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="alert('Mobile App Management - Coming Soon')">
-                                <i class="fas fa-mobile-alt me-2"></i>
-                                Mobile App
-                            </a>
-                        </li>
+                <!-- Coming Soon Features -->
+                <div class="nav-item">
+                    <a class="nav-link" href="#" onclick="showComingSoon('Property Valuation')">
+                        <i class="fas fa-calculator"></i>
+                        Property Valuation
+                        <span class="badge bg-info ms-auto">Soon</span>
+                    </a>
+                </div>
 
-                        <!-- System Settings -->
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('admin.system.*') ? 'active' : '' }}" href="#" data-bs-toggle="collapse" data-bs-target="#systemSubmenu" aria-expanded="false">
-                                <i class="fas fa-cog me-2"></i>
-                                System Settings
-                                <i class="fas fa-chevron-down ms-auto"></i>
+                <div class="nav-item">
+                    <a class="nav-link" href="#" onclick="showComingSoon('Legal Support')">
+                        <i class="fas fa-gavel"></i>
+                        Legal Support
+                        <span class="badge bg-info ms-auto">Soon</span>
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" href="#" onclick="showComingSoon('Transactions')">
+                        <i class="fas fa-handshake"></i>
+                        Transactions
+                        <span class="badge bg-info ms-auto">Soon</span>
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" href="#" onclick="showComingSoon('Banking Partners')">
+                        <i class="fas fa-university"></i>
+                        Banking Partners
+                        <span class="badge bg-info ms-auto">Soon</span>
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" href="#" onclick="showComingSoon('Mobile App')">
+                        <i class="fas fa-mobile-alt"></i>
+                        Mobile App
+                        <span class="badge bg-info ms-auto">Soon</span>
+                    </a>
+                </div>
+
+                <!-- System Settings -->
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.system.*') ? 'active' : '' }}" 
+                       href="#systemMenu" 
+                       data-bs-toggle="collapse">
+                        <i class="fas fa-cog"></i>
+                        System Settings
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse {{ request()->routeIs('admin.system.*') ? 'show' : '' }}" id="systemMenu">
+                        <nav class="nav flex-column">
+                            <a class="nav-link {{ request()->routeIs('admin.system.index') ? 'active' : '' }}" href="{{ route('admin.system.index') }}">
+                                <i class="fas fa-tachometer-alt"></i>
+                                System Overview
                             </a>
-                            <div class="collapse {{ request()->routeIs('admin.system.*') ? 'show' : '' }}" id="systemSubmenu">
-                                <ul class="nav flex-column ms-3">
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.system.index') ? 'active' : '' }}" href="{{ route('admin.system.index') }}">
-                                            <i class="fas fa-tachometer-alt me-2"></i>
-                                            System Overview
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.system.settings') ? 'active' : '' }}" href="{{ route('admin.system.settings') }}">
-                                            <i class="fas fa-sliders-h me-2"></i>
-                                            General Settings
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.system.integrations') ? 'active' : '' }}" href="{{ route('admin.system.integrations') }}">
-                                            <i class="fas fa-plug me-2"></i>
-                                            Integrations
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.system.maintenance') ? 'active' : '' }}" href="{{ route('admin.system.maintenance') }}">
-                                            <i class="fas fa-tools me-2"></i>
-                                            Maintenance
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link {{ request()->routeIs('admin.system.security') ? 'active' : '' }}" href="{{ route('admin.system.security') }}">
-                                            <i class="fas fa-shield-alt me-2"></i>
-                                            Security
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-                    </ul>
+                            <a class="nav-link {{ request()->routeIs('admin.system.settings') ? 'active' : '' }}" href="{{ route('admin.system.settings') }}">
+                                <i class="fas fa-sliders-h"></i>
+                                General Settings
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('admin.system.integrations') ? 'active' : '' }}" href="{{ route('admin.system.integrations') }}">
+                                <i class="fas fa-plug"></i>
+                                Integrations
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('admin.system.maintenance') ? 'active' : '' }}" href="{{ route('admin.system.maintenance') }}">
+                                <i class="fas fa-tools"></i>
+                                Maintenance
+                            </a>
+                            <a class="nav-link {{ request()->routeIs('admin.system.security') ? 'active' : '' }}" href="{{ route('admin.system.security') }}">
+                                <i class="fas fa-shield-alt"></i>
+                                Security
+                            </a>
+                        </nav>
+                    </div>
                 </div>
             </nav>
-
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                @if(session('success'))
-                    <div class="alert alert-success">
-                        {{ session('success') }}
-                    </div>
-                @endif
-                @if(session('error'))
-                    <div class="alert alert-danger">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
-                @yield('content')
-            </main>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Page Header -->
+        @hasSection('page-header')
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                @yield('page-header')
+            </div>
+        @endif
+
+        <!-- Flash Messages -->
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show">
+                <i class="fas fa-check-circle me-2"></i>
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if(session('warning'))
+            <div class="alert alert-warning alert-dismissible fade show">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {{ session('warning') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        @if(session('info'))
+            <div class="alert alert-info alert-dismissible fade show">
+                <i class="fas fa-info-circle me-2"></i>
+                {{ session('info') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <!-- Page Content -->
+        @yield('content')
+    </main>    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- DataTables -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    
+    <!-- Custom Admin JS -->
+    <script>
+        // Disable DataTable auto-init to prevent conflicts
+        window.dataTableInitialized = false;
+        
+        // Safe admin initialization
+        $(document).ready(function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Initialize alerts auto-dismiss
+            $('.alert').each(function() {
+                if ($(this).hasClass('alert-dismissible')) {
+                    setTimeout(() => {
+                        $(this).alert('close');
+                    }, 5000);
+                }
+            });
+        });
+    </script>
+    
+    <script>
+        // Coming Soon Function
+        function showComingSoon(feature) {
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-info border-0 position-fixed';
+            toast.style.cssText = 'top: 90px; right: 20px; z-index: 1055;';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-rocket me-2"></i>
+                        <strong>${feature}</strong> - Coming Soon!
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        }
+
+        // Auto-hide alerts
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(alert => {
+                if (alert.querySelector('.btn-close')) {
+                    bootstrap.Alert.getOrCreateInstance(alert).close();
+                }
+            });
+        }, 5000);
+    </script>
+
+    @stack('scripts')
 </body>
 </html> 
